@@ -1,4 +1,4 @@
 from .imf import IMF
 from .lifetimes import Lifetimes
-from .sn_Ia import SN_Ia
-from .instant import SN_II, SN_Overall, AGB
+from .sn_Ia import SNIa
+from .instant import SNII, SNOverall, AGB
