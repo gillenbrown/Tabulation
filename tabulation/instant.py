@@ -1,7 +1,7 @@
 import yields
 from scipy import interpolate
 
-elts = ["He", "C", "N", "O", "Fe"]
+elts = ["He", "C", "N", "O", "Fe", "total_metals"]
 
 
 class InstantaneousEjecta(object):
@@ -132,11 +132,19 @@ class InstantaneousEjecta(object):
         """
         for elt in elts:
             for z in self.metallicities:
-                # get the mass fraction for all models. The mass fraction
-                # function returns an array. The [0] index gets rid of that.
-                mass_fracs = [self.models[m].mass_fraction(elt, z,
-                                                           metal_only=False)[0]
-                              for m in sorted(self.masses)]
+                # get the mass fraction for all models.
+                if elt == "total_metals":
+                    mass_fracs = []
+                    for m in sorted(self.masses):
+                        self.models[m].set_metallicity(z)
+                        met_ejecta = self.models[m].ejecta_sum(metal_only=True)
+                        tot_ejecta = self.models[m].ejecta_sum(metal_only=False)
+                        mass_fracs.append(met_ejecta / tot_ejecta)
+                else:
+                    # The mass fraction function returns an array. The [0]
+                    # index gets rid of that.
+                    mass_fracs = [self.models[m].mass_fraction(elt, z, False)[0]
+                                  for m in sorted(self.masses)]
 
                 # outside the range, just use extremal values.
                 fill_values = (mass_fracs[0], mass_fracs[-1])

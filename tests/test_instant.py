@@ -358,6 +358,44 @@ def test_hn_ejected_masses(hn_ii_kobayashi, m, z, elt, answer):
     assert my_answer == approx(answer, rel=2E-3)
 
 
+# These are only rough estimates, since the values given in Kobayashi are
+# only to 3 sig figs. This is calcuted by M_final - M_p - M_4He. Deuterium and
+# 3He are insignificant
+metals_check_sn = [[13, 0,     13.00, 1.57, 6.60, 4.01],
+                   [15, 0,     15.00, 1.48, 7.58, 4.40],
+                   [18, 0.001, 17.84, 1.70, 8.46, 6.54],
+                   [20, 0.001, 19.72, 1.85, 8.43, 5.94],
+                   [25, 0.004, 24.03, 1.68, 10.2, 8.48],
+                   [30, 0.004, 27.59, 2.56, 10.1, 7.92],
+                   [40, 0.02,  21.83, 2.21, 3.55, 4.71],
+                   [13, 0.02,  12.73, 1.60, 6.16, 4.30]]
+
+
+@pytest.mark.parametrize("m,z,m_final,m_cut,m_h,m_he", metals_check_sn)
+def test_sn_ejected_metals(sn_ii_kobayashi, m, z, m_final, m_cut, m_h, m_he):
+    """Get items right from the table."""
+    metal_ejecta = m_final - (m_cut + m_h + m_he)
+    my_answer = sn_ii_kobayashi.elemental_ejecta_mass(m, z, "total_metals")
+    assert my_answer == approx(metal_ejecta, rel=1E-2)
+
+
+# These are only rough estimates, since the values given in Kobayashi are
+# only to 3 sig figs. This is calcuted by M_final - M_p - M_4He. Deuterium and
+# 3He are insignificant
+metals_check_hn = [[20, 0    , 20.00, 1.88, 8.77, 5.96],
+                   [25, 0.001, 24.45, 2.15, 9.80, 7.00],
+                   [30, 0.004, 27.55, 4.05, 10.1, 7.93],
+                   [40, 0.02,  21.84, 2.67, 3.55, 4.78]]
+
+
+@pytest.mark.parametrize("m,z,m_final,m_cut,m_h,m_he", metals_check_hn)
+def test_hn_ejected_metals(hn_ii_kobayashi, m, z, m_final, m_cut, m_h, m_he):
+    """Get items right from the table."""
+    metal_ejecta = m_final - (m_cut + m_h + m_he)
+    my_answer = hn_ii_kobayashi.elemental_ejecta_mass(m, z, "total_metals")
+    assert my_answer == approx(metal_ejecta, rel=1E-2)
+
+
 # ----------------------------------------------------------
 
 # Testing combined SN model set
