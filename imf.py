@@ -24,6 +24,10 @@ class IMF(object):
         else:
             raise ValueError("IMF not supported.")
 
+        # check the limits
+        if m_low >= m_high:
+            raise ValueError("IMF minumum mass must be lower than maximum mass")
+
         # use the total mass to get the normalization.
         self.normalization = None
         self.normalize(m_low, m_high, total_mass)

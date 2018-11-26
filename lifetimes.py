@@ -15,6 +15,8 @@ class Lifetimes(object):
         # parse the name
         if name.lower() == "raiteri_96":
             self.lifetime = self.raiteri_96
+            self.max_mass = 120
+            self.min_mass = 0.6
         else:
             raise ValueError("Lifetime not supported")
 
@@ -40,6 +42,18 @@ class Lifetimes(object):
         # turnoff_result is a structure that scipy uses. We want the answer
         # it contains.
         return turnoff_result.x
+
+    def min_time(self, metallicity):
+        """
+        Get the minimum time for which the lifetimes work.
+
+        This is the lifetime of the maximum mass star the models support. This
+        is metallicity dependent, as well.
+
+        :param metallicity: Metallicity at which to evaluate the min time.
+        :return: Minimum time to trust the lifetimes, in years.
+        """
+        return self.lifetime(self.max_mass, metallicity)
 
     @staticmethod
     def raiteri_96(m, z):

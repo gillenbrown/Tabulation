@@ -27,6 +27,11 @@ class InstantaneousEjecta(object):
         self.mass_boundary_low = mass_boundary_low
         self.mass_boundary_high = mass_boundary_high
 
+        # check that mass boundaries aren't inconsistent
+        if self.mass_boundary_low >= self.mass_boundary_high:
+            raise ValueError("The minimum mass needs to be smaller than the"
+                             "maximum mass for a yield set.")
+
         self.models = dict()  # keys of mass, values of Yield objects
         # we then have a bunch of information about the yields.
         # First is mass fractions, which holds the fraction of the total ejected
@@ -143,7 +148,7 @@ class InstantaneousEjecta(object):
                                               bounds_error=False)
                 self.mass_fracs[elt][z] = interp
 
-    def get_mass_fractions(self, element, metallicity, mass):
+    def mass_fractions(self, element, metallicity, mass):
         """
         Get the ejected mass fraction for an element for a stellar model at a
         given stellar mass and metallicity.
@@ -165,6 +170,29 @@ class InstantaneousEjecta(object):
         """
         # simply call the interpolation objects we made earlier.
         return self.mass_fracs[element][metallicity](mass)
+
+    def elemental_ejecta_mass(self, mass, metallicity, element):
+        """
+        Get the mass of a given element ejected at given stellar mass and
+        metallicity.
+
+        The mass of an ejected element is the total ejected mass times the
+        mass fraction of that element.
+
+        :param mass: Stellar mass of the supernova progenitor.
+        :param metallicity: Metallicity of the supernova progenitor.
+        :param element: Element to get the ejected mass of. To get the total
+                        mass ejected, pass "total", which will use 1 for the
+                        mass fractions above.
+        :return: Ejected mass of that element.
+        """
+        # get the mass fractions in a given element
+        if element == "total":
+            frac = 1
+        else:
+            frac = self.mass_fractions(element, metallicity, mass)
+        eject = self.ejecta(mass, metallicity)
+        return frac * eject
 
 
 class SNII(InstantaneousEjecta):
@@ -192,6 +220,7 @@ class SNII(InstantaneousEjecta):
         elif name.lower() == "kobayashi_06_hn":
             self.masses = [20, 25, 30, 40]  # stellar masses
             self.metallicities = [0, 0.001, 0.004, 0.02]
+            self.mass_boundary_low = min(self.masses)
             label_fmt = "kobayashi_06_II_{}_hn"
         else:
             raise ValueError("SN not recognized.")
@@ -369,7 +398,7 @@ class SNOverall(object):
         """
         return 1 - self.hn_fraction(mass)
 
-    def get_elemental_ejecta_mass(self, mass, metallicity, element):
+    def elemental_ejecta_mass(self, mass, metallicity, element):
         """
         Get the mass of a given element ejected by supernova and hypernova
         of a given stellar mass and metallicity.
@@ -388,19 +417,19 @@ class SNOverall(object):
 
         :param mass: Stellar mass of the supernova progenitor.
         :param metallicity: Metallicity of the supernova progenitor.
-        :param element: Element to get the ejected mass of.
+        :param element: Element to get the ejected mass of. To get the total
+                        mass ejected, pass "total", which will use 1 for the
+                        mass fractions above.
         :return: Ejected mass of that element.
         """
-        # get the total ejected mass
-        m_ej_hn = self.hn.ejecta(mass, metallicity)
-        m_ej_sn = self.sn.ejecta(mass, metallicity)
-
-        # get the mass fractions in a given element
-        f_elt_hn = self.hn.get_mass_fractions(element, metallicity, mass)
-        f_elt_sn = self.sn.get_mass_fractions(element, metallicity, mass)
+        # get the SN and HN terms
+        sn_ejected_mass = self.sn.elemental_ejecta_mass(mass, metallicity,
+                                                        element)
+        hn_ejected_mass = self.hn.elemental_ejecta_mass(mass, metallicity,
+                                                        element)
 
         # then construct the total for each type of supernova
-        hn_term = self.hn_fraction(mass) * m_ej_hn * f_elt_hn
-        sn_term = self.sn_fraction(mass) * m_ej_sn * f_elt_sn
+        hn_term = self.hn_fraction(mass) * hn_ejected_mass
+        sn_term = self.sn_fraction(mass) * sn_ejected_mass
 
         return hn_term + sn_term
