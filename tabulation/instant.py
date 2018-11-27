@@ -342,7 +342,7 @@ class AGB(InstantaneousEjecta):
         self._make_mass_fractions()
 
 
-class SNOverall(object):
+class MassiveOverall(object):
     """
     Class handling the total SN ejecta, which can consist of both supernovae
     and hypernovae.
@@ -435,6 +435,37 @@ class SNOverall(object):
                                                         element)
         hn_ejected_mass = self.hn.elemental_ejecta_mass(mass, metallicity,
                                                         element)
+
+        # then construct the total for each type of supernova
+        hn_term = self.hn_fraction(mass) * hn_ejected_mass
+        sn_term = self.sn_fraction(mass) * sn_ejected_mass
+
+        return hn_term + sn_term
+
+    def wind_mass(self, mass, metallicity):
+        """
+        Get the total mass ejected as winds by massive stars of a given stellar
+        mass and metallicity.
+
+        This is calculated in the following way:
+        The mass of an ejected element in a given supernova is the total
+        ejected mass times the mass fraction of that element. This is calculated
+        separately for both SN and HN. To combine these, we multiply the SN
+        fraction times the SN ejected elemental mass, and similarly for the HN
+        fraction. Then these are added together. Mathematically, this is:
+        f_{SN} * M_{ej,total,SN} * f_{elt,SN} +
+        f_{HN} * M_{ej,total,HN} * f_{elt,HN}
+
+        This goes directly into the calculation of the time-resolved yields that
+        are tabulated.
+
+        :param mass: Stellar mass of the supernova progenitor.
+        :param metallicity: Metallicity of the supernova progenitor.
+        :return: Ejected mass of that element.
+        """
+        # get the SN and HN terms
+        sn_ejected_mass = self.sn.winds(mass, metallicity)
+        hn_ejected_mass = self.hn.winds(mass, metallicity)
 
         # then construct the total for each type of supernova
         hn_term = self.hn_fraction(mass) * hn_ejected_mass

@@ -1,6 +1,6 @@
 import pytest
 from pytest import approx
-from tabulation import SNII, SNOverall, AGB
+from tabulation import SNII, MassiveOverall, AGB
 import numpy as np
 import yields
 
@@ -25,8 +25,8 @@ def agb_nugrid():
 
 
 @pytest.fixture
-def sn_overall():
-    return SNOverall("kobayashi_06", 0.45, 8, 50)
+def massive_overall():
+    return MassiveOverall("kobayashi_06", 0.45, 8, 50)
 
 
 yields_models = {"sn": dict(), "hn": dict(), "agb": dict()}
@@ -278,10 +278,14 @@ def test_wind_masses_exact(my_model, yields_models, mass):
     assert approx(real_ejecta) == my_ejecta
 
 
-@pytest.mark.parametrize("my_model", [sn_ii_kobayashi_obj, hn_ii_kobayashi_obj])
-def test_wind_masses_sn_below_8(my_model):
-    for z in my_model.metallicities:
-        assert 0 == my_model.winds(7.99, z)
+def test_wind_masses_sn_below_8(sn_ii_kobayashi):
+    for z in sn_ii_kobayashi.metallicities:
+        assert 0 == sn_ii_kobayashi.winds(7.99, z)
+
+
+def test_wind_masses_hn_below_20(hn_ii_kobayashi):
+    for z in hn_ii_kobayashi.metallicities:
+        assert 0 == hn_ii_kobayashi.winds(19.99, z)
 
 
 def test_wind_masses_sn_between_8_13(sn_ii_kobayashi):
@@ -339,6 +343,7 @@ ejecta_check_sn = [[13, 0,     "C",  7.41E-2 + 8.38E-8],
                    [40, 0.02,  "O",  7.33E-0 + 9.72E-4 + 1.23E-2],
                    [13, 0.02,  "Fe", 1.98E-3 + 8.32E-2 + 2.22E-3 + 1.21E-4]]
 
+
 @pytest.mark.parametrize("m,z,elt,answer", ejecta_check_sn)
 def test_sn_ejected_masses(sn_ii_kobayashi, m, z, elt, answer):
     """Get items right from the table."""
@@ -350,6 +355,7 @@ ejecta_check_hn = [[20, 0,     "C",  1.90E-1 + 1.18E-8],
                    [25, 0.001, "N",  9.20E-3 + 7.24E-6],
                    [30, 0.004, "O",  3.82E-0 + 1.20E-4 + 4.38E-5],
                    [40, 0.02,  "Fe", 5.89E-3 + 2.77E-1 + 8.90E-3 + 1.36E-3]]
+
 
 @pytest.mark.parametrize("m,z,elt,answer", ejecta_check_hn)
 def test_hn_ejected_masses(hn_ii_kobayashi, m, z, elt, answer):
@@ -382,7 +388,7 @@ def test_sn_ejected_metals(sn_ii_kobayashi, m, z, m_final, m_cut, m_h, m_he):
 # These are only rough estimates, since the values given in Kobayashi are
 # only to 3 sig figs. This is calcuted by M_final - M_p - M_4He. Deuterium and
 # 3He are insignificant
-metals_check_hn = [[20, 0    , 20.00, 1.88, 8.77, 5.96],
+metals_check_hn = [[20, 0,     20.00, 1.88, 8.77, 5.96],
                    [25, 0.001, 24.45, 2.15, 9.80, 7.00],
                    [30, 0.004, 27.55, 4.05, 10.1, 7.93],
                    [40, 0.02,  21.84, 2.67, 3.55, 4.78]]
@@ -407,11 +413,29 @@ ejecta_check_agb = [[1,    0.0001, "C",  8.708E-03],
                     [1,    0.02,   "C",  1.353E-03],
                     [7,    0.02,   "N",  4.746E-02]]
 
+
 @pytest.mark.parametrize("m,z,elt,answer", ejecta_check_agb)
 def test_agb_ejected_masses(agb_nugrid, m, z, elt, answer):
     """Get items right from the table."""
     my_answer = agb_nugrid.elemental_ejecta_mass(m, z, elt)
     assert my_answer == approx(answer, rel=1E-3)
+
+
+#
+# Get the total metals lost. This is calculated by M - M_remnant - M_H - M_He.
+metals_check_agb = [[1, 0.0001, 5.296E-01, 3.289E-01, 1.308E-01],
+                    [3, 0.001,  8.242E-01, 1.570E+00, 5.920E-01],
+                    [5, 0.006,  9.533E-01, 2.650E+00, 1.371E+00],
+                    [6, 0.01,   9.938E-01, 3.133E+00, 1.805E+00],
+                    [7, 0.02,   1.066E+00, 3.568E+00, 2.239E+00]]
+
+
+@pytest.mark.parametrize("m,z,m_remnant,m_h,m_he", metals_check_agb)
+def test_agb_ejected_metals(agb_nugrid, m, z, m_remnant, m_h, m_he):
+    """Get items right from the table."""
+    metal_ejecta = m - (m_remnant + m_h + m_he)
+    my_answer = agb_nugrid.elemental_ejecta_mass(m, z, "total_metals")
+    assert my_answer == approx(metal_ejecta, rel=5E-2)
 
 
 # ----------------------------------------------------------
@@ -421,43 +445,43 @@ def test_agb_ejected_masses(agb_nugrid, m, z, elt, answer):
 # ----------------------------------------------------------
 def test_min_max_limits_equal_overall():
     with pytest.raises(ValueError):
-        SNOverall("Kobayashi_06", 0.5, 15, 15)
+        MassiveOverall("Kobayashi_06", 0.5, 15, 15)
 
 
 def test_min_max_limits_reversed_overall():
     with pytest.raises(ValueError):
-        SNOverall("Kobayashi_06", 0.5, 20, 10)
+        MassiveOverall("Kobayashi_06", 0.5, 20, 10)
 
 
-def test_init_sn_overall(sn_overall):
+def test_init_massive_overall(massive_overall):
     """ Test initialization """
-    assert sn_overall._hn_fraction == 0.45
-    assert sn_overall._sn_fraction == 0.55
+    assert massive_overall._hn_fraction == 0.45
+    assert massive_overall._sn_fraction == 0.55
 
 
-def test_hn_fraction(sn_overall):
-    assert sn_overall.hn_fraction(9.9) == 0
-    assert sn_overall.sn_fraction(9.9) == 1
+def test_hn_fraction(massive_overall):
+    assert massive_overall.hn_fraction(9.9) == 0
+    assert massive_overall.sn_fraction(9.9) == 1
 
-    assert sn_overall.hn_fraction(19.9) == 0
-    assert sn_overall.sn_fraction(19.9) == 1
+    assert massive_overall.hn_fraction(19.9) == 0
+    assert massive_overall.sn_fraction(19.9) == 1
 
-    assert sn_overall.hn_fraction(20) == 0.45
-    assert sn_overall.sn_fraction(20) == 0.55
+    assert massive_overall.hn_fraction(20) == 0.45
+    assert massive_overall.sn_fraction(20) == 0.55
 
-    assert sn_overall.hn_fraction(20.1) == 0.45
-    assert sn_overall.sn_fraction(20.1) == 0.55
+    assert massive_overall.hn_fraction(20.1) == 0.45
+    assert massive_overall.sn_fraction(20.1) == 0.55
 
-    assert sn_overall.hn_fraction(120) == 0.45
-    assert sn_overall.sn_fraction(120) == 0.55
+    assert massive_overall.hn_fraction(120) == 0.45
+    assert massive_overall.sn_fraction(120) == 0.55
 
 
-def test_integrand_example_with_hn(sn_overall):
+def test_integrand_example_with_hn(massive_overall):
     """See if the integrand calculation is working at a given mass"""
     z = 0.004
     m = 20
 
-    hn_frac = sn_overall._hn_fraction
+    hn_frac = massive_overall._hn_fraction
     sn_frac = 1.0 - hn_frac
 
     real_sn_mass_frac = yields_models["sn"][m].mass_fraction("C", z,
@@ -472,17 +496,17 @@ def test_integrand_example_with_hn(sn_overall):
     sn_term = sn_frac * real_sn_mass_frac * real_sn_ejecta
     total_integrand = hn_term + sn_term
 
-    my_integrand = sn_overall.elemental_ejecta_mass(m, z, "C")
+    my_integrand = massive_overall.elemental_ejecta_mass(m, z, "C")
 
     assert my_integrand == approx(total_integrand)
 
 
-def test_integrand_example_with_hn_total(sn_overall):
+def test_integrand_example_with_hn_total(massive_overall):
     """See if the integrand calculation is working at a given mass"""
     z = 0.004
     m = 20
 
-    hn_frac = sn_overall._hn_fraction
+    hn_frac = massive_overall._hn_fraction
     sn_frac = 1.0 - hn_frac
 
     real_sn_ejecta = yields_models["sn"][m].total_end_ejecta[z]
@@ -492,12 +516,32 @@ def test_integrand_example_with_hn_total(sn_overall):
     sn_term = sn_frac * real_sn_ejecta
     total_integrand = hn_term + sn_term
 
-    my_integrand = sn_overall.elemental_ejecta_mass(m, z, "total")
+    my_integrand = massive_overall.elemental_ejecta_mass(m, z, "total")
 
     assert my_integrand == approx(total_integrand)
 
 
-def test_integrand_example_without_hn(sn_overall):
+def test_integrand_example_with_hn_winds(massive_overall):
+    """See if the integrand calculation is working at a given mass"""
+    z = 0.004
+    m = 20
+
+    hn_frac = massive_overall._hn_fraction
+    sn_frac = 1.0 - hn_frac
+
+    real_wind_ejecta_sn = yields_models["sn"][m].wind_ejecta[z]
+    real_wind_ejecta_hn = yields_models["hn"][m].wind_ejecta[z]
+
+    hn_term = hn_frac * real_wind_ejecta_hn
+    sn_term = sn_frac * real_wind_ejecta_sn
+    total_integrand = hn_term + sn_term
+
+    my_integrand = massive_overall.wind_mass(m, z)
+
+    assert my_integrand == approx(total_integrand)
+
+
+def test_integrand_example_without_hn(massive_overall):
     """See if the integrand calculation is working at a given mass"""
     z = 0.004
     m = 18
@@ -507,23 +551,38 @@ def test_integrand_example_without_hn(sn_overall):
     real_sn_ejecta = yields_models["sn"][m].total_end_ejecta[z]
     sn_term = real_sn_mass_frac * real_sn_ejecta
 
-    my_integrand = sn_overall.elemental_ejecta_mass(m, z, "N")
+    my_integrand = massive_overall.elemental_ejecta_mass(m, z, "N")
 
     assert my_integrand == approx(sn_term)
 
 
-def test_integrand_example_without_hn_total(sn_overall):
+def test_integrand_example_without_hn_total(massive_overall):
     """See if the integrand calculation is working at a given mass"""
     z = 0.004
     m = 18
 
     real_sn_ejecta = yields_models["sn"][m].total_end_ejecta[z]
 
-    my_integrand = sn_overall.elemental_ejecta_mass(m, z, "total")
+    my_integrand = massive_overall.elemental_ejecta_mass(m, z, "total")
 
     assert my_integrand == approx(real_sn_ejecta)
 
 
-def test_sn_hn_fractions_sum(sn_overall):
+def test_integrand_example_without_hn_winds(massive_overall):
+    """See if the integrand calculation is working at a given mass"""
+    z = 0.004
+    m = 18
+
+    real_wind_ejecta = yields_models["sn"][m].wind_ejecta[z]
+
+    my_integrand = massive_overall.wind_mass(m, z)
+
+    assert my_integrand == approx(real_wind_ejecta)
+
+
+def test_sn_hn_fractions_sum(massive_overall):
     for m in np.arange(0, 100, 1):
-        assert 1.0 == sn_overall.sn_fraction(m) + sn_overall.hn_fraction(m)
+        assert 1.0 == massive_overall.sn_fraction(m) + \
+                      massive_overall.hn_fraction(m)
+
+# TODO: think of splitting up integrals
