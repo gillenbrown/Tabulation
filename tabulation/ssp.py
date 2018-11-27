@@ -23,7 +23,8 @@ class SSPYields(object):
                  lifetimes_name,
                  sn_ii_yields, sn_ii_hn_fraction,
                  sn_ii_min_mass, sn_ii_max_mass,
-                 sn_ia_dtd, sn_ia_yields,
+                 sn_ia_dtd, sn_ia_yields, sn_ia_exploding_fraction,
+                 sn_ia_min_mass, sn_ia_max_mass,
                  agb_yields, agb_min_mass, agb_max_mass):
         """
 
@@ -60,6 +61,15 @@ class SSPYields(object):
         :param agb_yields: Name of the yield set used for SN II. Available
                            choices are: "NuGrid".
         :type agb_yields: str
+        :param sn_ia_exploding_fraction: Fraction of stars in the IMF range
+                                         where SNIa exist that explode as SNIa.
+        :type sn_ia_exploding_fraction: float
+        :param sn_ia_min_mass: Minimum stellar mass capable of
+                               exploding as SNIa.
+        :type sn_ia_min_mass: float
+        :param sn_ia_max_mass: Maximum stellar mass capable of
+                               exploding as SNIa.
+        :type sn_ia_max_mass: float
         :param agb_min_mass: Minimum stellar mass that ejects mass in AGB phase.
         :type agb_min_mass: float
         :param agb_min_mass: Maximum stellar mass that ejects mass in AGB phase.
@@ -69,17 +79,33 @@ class SSPYields(object):
         self.lifetimes = Lifetimes(lifetimes_name)
         self.sn_ii_model = MassiveOverall(sn_ii_yields, sn_ii_hn_fraction,
                                           sn_ii_min_mass, sn_ii_max_mass)
-        self.sn_ia_model = SNIa(sn_ia_dtd, sn_ia_yields)
+        self.sn_ia_model = SNIa(sn_ia_dtd, sn_ia_yields,
+                                sn_ia_exploding_fraction,
+                                sn_ia_min_mass, sn_ia_max_mass)
         self.agb_model = AGB(agb_yields, agb_min_mass, agb_max_mass)
+
+        # handle a bit more computation for Ia
+        num_in_range = integrate.quad(self.imf.normalized_dn_dm,
+                                      self.sn_ia_model.min_mass,
+                                      self.sn_ia_model.max_mass)[0]
+        self.num_sn_Ia = num_in_range * self.sn_ia_model.exploding_fraction
 
     def _integrate_mass_smart(self, func, lower_mass_limit, upper_mass_limit,
                               source):
         """
+        Integrates a function with respect to mass in a smart way that avoids
+        discontinuities.
 
-        :param func:
-        :param lower_mass_limit:
-        :param upper_mass_limit:
-        :param source:
+        It does this simply by splitting the integral at locations where there
+        are discontinuities in the mass fractions. This happens because we use
+        nearest neighbor interpolation.
+
+        :param func: function to integrate
+        :param lower_mass_limit: Lower mass limit of the integration
+        :param upper_mass_limit: Upper mass limit of the integration
+        :param source: What kind of stellar models this uses. Can be either
+                       "massive" for the massive star set or "low_mass" for the
+                       AGB model set.
         :return:
         """
         if source == "massive":
@@ -113,7 +139,6 @@ class SSPYields(object):
             total_integral += integrate.quad(func, m_low, m_high)[0]
 
         return total_integral
-
 
     def mass_lost_end_ms(self, element, time_1, time_2, metallicity,
                          source):
@@ -232,3 +257,27 @@ class SSPYields(object):
         return self._integrate_mass_smart(wind_mass_loss_at_a_mass,
                                           m_lower_limit, m_upper_limit,
                                           source="massive")
+
+    def mass_loss_rate_snia(self, element, time, metallicity):
+        """
+        Get the mass loss rate of a given element by SNIa.
+
+        This follows the prescription in ART. There the calculation of the
+        amount of metals to add to a cell is
+        phi * snIa.metals * stellar_mass_of_particle
+
+        The calculation of snIa.metals means this works out to
+        phi * metal_mass_per_sn * number_SNIa
+
+        To turn this into a rate we can use the phi/dt, which is what I have
+        coded into my SN Ia class. So this calculation turns out to be simple.
+        rate = phi/dt * mass_in_elt_per_sn * number_SNIa
+
+        :param element: Element to get the ejecta for
+        :param time: Time at which to get the ejecta
+        :param metallicity: Metallicity at which to get the ejecta
+        :return: Mass loss rate for the given element by SNIa.
+        """
+        phi_dt = self.sn_ia_model.sn_dtd(time)
+        mass_per_sn = self.sn_ia_model.ejected_mass(element, metallicity)
+        return phi_dt * self.num_sn_Ia * mass_per_sn

@@ -18,6 +18,8 @@ class IMF(object):
         :param total_mass: Total mass of the SSP. Used to normalize quantities.
                            Defaults to 1 if not set.
         """
+        self.total_mass = total_mass
+
         # parse the model name.
         if name.lower() == "kroupa":
             self.dn_dm = np.vectorize(self.kroupa_dn_dm)
@@ -29,7 +31,7 @@ class IMF(object):
             raise ValueError("IMF minumum mass must be lower than maximum mass")
 
         # use the total mass to get the normalization.
-        self.normalization = None
+        self.normalization = 1  # will be replaced
         self.normalize(m_low, m_high, total_mass)
 
     def normalized_dn_dm(self, mass):
@@ -40,6 +42,17 @@ class IMF(object):
         :return: IMF evaluated at `mass`
         """
         return self.normalization * self.dn_dm(mass)
+
+    def normalized_m_dn_dm(self, mass):
+        """
+        Return the function m * IMF(m) at a given mass.
+
+        This is useful when integrating over the IMF, for example.
+
+        :param mass: Stellar mass, in units of solar masses.
+        :return: m * IMF(m)
+        """
+        return mass * self.normalized_dn_dm(mass)
 
     def normalize(self, m_low, m_high, total_mass=1):
         """
@@ -54,17 +67,7 @@ class IMF(object):
         # total_mass = N * integral of IMF from low to high
         # so
         # N = total_mass / integral
-        def mass_integrand(m):
-            """
-            Integrand to calculate the total mass of the IMF.
-            if m * phi(m) at all masses.
-
-            :param m: Stellar mass.
-            :return: m * phi(m) at all masses.
-            """
-            return m * self.dn_dm(m)
-
-        integral = integrate.quad(mass_integrand, m_low, m_high)[0]
+        integral = integrate.quad(self.normalized_m_dn_dm, m_low, m_high)[0]
         self.normalization = total_mass / integral
 
     @staticmethod
