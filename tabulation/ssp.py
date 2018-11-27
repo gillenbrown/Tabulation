@@ -63,9 +63,10 @@ class SSPYields(object):
         self.sn_ia_model = SNIa(sn_ia_dtd, sn_ia_yields)
         self.agb_model = AGB(agb_yields, agb_min_mass, agb_max_mass)
 
-    def sn_mass_lost(self, element, time_1, time_2, metallicity):
+    def mass_lost(self, element, time_1, time_2, metallicity,
+                  source):
         """
-        Calculate the mass loss in SN for a given element.
+        Calculate the mass loss for a given element over a given time.
 
         This will have units of stellar masses.
 
@@ -78,6 +79,7 @@ class SSPYields(object):
         :param time_1: Starting time boundary for mass loss
         :param time_2: Ending time boundary.
         :param metallicity: Metallicity of the progenitors.
+        :param source: What source the elements come from. Can be "AGB" or "SN".
         :return:
         """
         # get the mass limits of the timesteps the user passed in. The
@@ -85,23 +87,27 @@ class SSPYields(object):
         m_low = self.lifetimes.turnoff_mass(time_2, metallicity)
         m_high = self.lifetimes.turnoff_mass(time_1, metallicity)
 
+        if source == "AGB":
+            model = self.agb_model
+        elif source == "SNII":
+            model = self.sn_ii_model
+
         # we want to integrate the instantaneous mass loss to get the
         # total mass loss, so we define the IMF-weighted mass loss
         def instantaneous_mass_loss(mass):
-            m_ej_per_sn = self.sn_ii_model.elemental_ejecta_mass(mass,
-                                                                 metallicity,
-                                                                 element)
+            m_ej_per_star = model.elemental_ejecta_mass(mass, metallicity,
+                                                        element)
             imf_weight = self.imf.normalized_dn_dm(mass)
 
-            return m_ej_per_sn * imf_weight
+            return m_ej_per_star * imf_weight
 
         # integrate this between our mass limits
         total_mass_loss = integrate.quad(instantaneous_mass_loss, m_low, m_high)
         return total_mass_loss[0]
 
-    def sn_ejecta_rate(self, element, time, timestep, metallicity):
+    def ejecta_rate(self, element, time, timestep, metallicity, source):
         """
-        Calculate the mass loss rate in SN for a given element.
+        Calculate the mass loss rate for a given element from a given source.
 
         This will have units of stellar masses per year.
 
@@ -116,9 +122,11 @@ class SSPYields(object):
         :param timestep: Timestep used to calculate the rate, as described
                          above, in years.
         :param metallicity: Metallicity of the progenitors.
+        :param source: What source the elements come from. Can be "AGB" or "SN".
         :return: Mass loss rate in stellar masses per year.
         """
         # the mss loss rate is the mass lost divided by the timestep. We first
         # get the total mass lost
-        mass_lost = self.sn_mass_lost(element, time, time+timestep, metallicity)
+        mass_lost = self.mass_lost(element, time, time + timestep, metallicity,
+                                   source)
         return mass_lost / timestep

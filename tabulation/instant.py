@@ -38,7 +38,7 @@ class InstantaneousEjecta(object):
         # mass in a given element. The keys here are the elements, and the
         # values are dictionaries, which themselves will have keys of
         # metallicity and values that are interpolation objects
-        self.mass_fracs = {elt: dict() for elt in elts}
+        self._mass_fracs = {elt: dict() for elt in elts}
         # then is the interpolation object to get the total ejecta. This has
         # keys of metallicities, and values that are interpolation objects
         self._ejecta_interp = dict()
@@ -154,7 +154,7 @@ class InstantaneousEjecta(object):
                                               kind="nearest",
                                               fill_value=fill_values,
                                               bounds_error=False)
-                self.mass_fracs[elt][z] = interp
+                self._mass_fracs[elt][z] = interp
 
     def mass_fractions(self, element, metallicity, mass):
         """
@@ -177,7 +177,7 @@ class InstantaneousEjecta(object):
         :rtype: float
         """
         # simply call the interpolation objects we made earlier.
-        return self.mass_fracs[element][metallicity](mass)
+        return self._mass_fracs[element][metallicity](mass)
 
     def elemental_ejecta_mass(self, mass, metallicity, element):
         """

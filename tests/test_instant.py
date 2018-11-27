@@ -396,6 +396,24 @@ def test_hn_ejected_metals(hn_ii_kobayashi, m, z, m_final, m_cut, m_h, m_he):
     assert my_answer == approx(metal_ejecta, rel=1E-2)
 
 
+ejecta_check_agb = [[1,    0.0001, "C",  8.708E-03],
+                    [1.65, 0.0001, "N",  5.710E-05],
+                    [2,    0.001,  "O",  1.184E-02],
+                    [3,    0.001,  "Fe", 3.116E-05],
+                    [4,    0.006,  "C",  9.100E-03],
+                    [5,    0.006,  "N",  7.439E-03],
+                    [6,    0.01,   "O",  1.943E-02],
+                    [7,    0.01,   "Fe", 4.227E-03],
+                    [1,    0.02,   "C",  1.353E-03],
+                    [7,    0.02,   "N",  4.746E-02]]
+
+@pytest.mark.parametrize("m,z,elt,answer", ejecta_check_agb)
+def test_agb_ejected_masses(agb_nugrid, m, z, elt, answer):
+    """Get items right from the table."""
+    my_answer = agb_nugrid.elemental_ejecta_mass(m, z, elt)
+    assert my_answer == approx(answer, rel=1E-3)
+
+
 # ----------------------------------------------------------
 
 # Testing combined SN model set
