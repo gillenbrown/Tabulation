@@ -1,9 +1,18 @@
 from scipy import integrate
+import numpy as np
 
 from .sn_Ia import SNIa
 from .instant import MassiveOverall, AGB
 from .lifetimes import Lifetimes
 from .imf import IMF
+
+
+def test_if_between(a, b, test_val):
+    """Returns True is test_val is between a and b"""
+    if a < b:
+        return a <= test_val <= b
+    else:
+        return b <= test_val <= a
 
 
 class SSPYields(object):
@@ -62,7 +71,50 @@ class SSPYields(object):
                                           sn_ii_min_mass, sn_ii_max_mass)
         self.sn_ia_model = SNIa(sn_ia_dtd, sn_ia_yields)
         self.agb_model = AGB(agb_yields, agb_min_mass, agb_max_mass)
-        
+
+    def _integrate_mass_smart(self, func, lower_mass_limit, upper_mass_limit,
+                              source):
+        """
+
+        :param func:
+        :param lower_mass_limit:
+        :param upper_mass_limit:
+        :param source:
+        :return:
+        """
+        if source == "massive":
+            masses = self.sn_ii_model.sn.masses
+        elif source == "low_mass":
+            masses = self.agb_model.masses
+        else:
+            raise ValueError("source not recognized.")
+
+        # make the boundaries where the mass fractions shift
+        boundaries = [np.mean([masses[idx], masses[idx+1]])
+                      for idx in range(len(masses) - 1)]
+
+        # we want to split the integral at the discontinuities. Find all the
+        # limits we want to integrate between. The edges the user specified
+        # are automatically included
+        limits = [lower_mass_limit, upper_mass_limit]
+        for b in boundaries:
+            if test_if_between(lower_mass_limit, upper_mass_limit, b):
+                limits.append(b)
+
+        # sort the limits to get them in order for easier use
+        limits.sort()
+
+        # then go through 2 at a time and do the integration
+        total_integral = 0
+        for idx in range(len(limits) - 1):
+            m_low = limits[idx]
+            m_high = limits[idx+1]
+
+            total_integral += integrate.quad(func, m_low, m_high)[0]
+
+        return total_integral
+
+
     def mass_lost_end_ms(self, element, time_1, time_2, metallicity,
                          source):
         """
@@ -90,8 +142,10 @@ class SSPYields(object):
 
         if source == "AGB":
             model = self.agb_model
+            integrate_source = "low_mass"
         elif source == "SNII":
             model = self.sn_ii_model
+            integrate_source = "massive"
         else:
             raise ValueError("This source not supported.")
 
@@ -105,8 +159,9 @@ class SSPYields(object):
             return m_ej_per_star * imf_weight
 
         # integrate this between our mass limits
-        total_mass_loss = integrate.quad(instantaneous_mass_loss, m_low, m_high)
-        return total_mass_loss[0]
+        return self._integrate_mass_smart(instantaneous_mass_loss,
+                                          m_low, m_high,
+                                          source=integrate_source)
 
     def mass_loss_rate_end_ms(self, element, time, timestep, metallicity,
                               source):
@@ -174,6 +229,6 @@ class SSPYields(object):
             return m_wind * imf_weight / wind_time
 
         # integrate this between our mass limits
-        total_mass_loss = integrate.quad(wind_mass_loss_at_a_mass,
-                                         m_lower_limit, m_upper_limit)
-        return total_mass_loss[0]
+        return self._integrate_mass_smart(wind_mass_loss_at_a_mass,
+                                          m_lower_limit, m_upper_limit,
+                                          source="massive")
