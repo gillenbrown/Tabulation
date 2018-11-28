@@ -72,4 +72,7 @@ class SNIa(object):
         if element == "total_metals":
             return self.model.ejecta_sum(metal_only=True)
         else:
-            return self.model.abundances[element]
+            try:
+                return self.model.abundances[element]
+            except KeyError:  # element not present
+                return 0

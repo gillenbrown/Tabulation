@@ -35,6 +35,14 @@ def test_ejected_mass_correct(sn_ia):
                                                    5.64E-4, 1.10E-8])
 
 
+def test_ejected_mass_elts_not_present(sn_ia):
+    assert sn_ia.ejected_mass("H", 0.02) == 0
+    assert sn_ia.ejected_mass("He", 0.02) == 0
+
+    assert sn_ia.ejected_mass("H", 0.002) == 0
+    assert sn_ia.ejected_mass("He", 0.002) == 0
+
+
 def test_ejected_mass_total_metals(sn_ia):
     assert 1.2 < sn_ia.ejected_mass("total_metals", 0.02) < 1.4
     assert 1.2 < sn_ia.ejected_mass("total_metals", 0.002) < 1.4
