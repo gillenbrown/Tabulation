@@ -20,6 +20,7 @@ ssp_obj = SSPYields("Kroupa", 1, 50, 1,
                     "ART", "Nomoto_18", 0.015, 3, 8,
                     "NuGrid", 1, 8)
 
+
 def test_num_snia():
     # it should just be less than the total mass
     assert ssp_obj.num_sn_Ia < ssp_obj.imf.total_mass
@@ -34,6 +35,7 @@ integral_limits = [[10, 45, "massive"],
                    [4.6, 10, "low_mass"],
                    [2.3, 5.2, "low_mass"]]
 
+
 @pytest.mark.parametrize("m_lo,m_hi,source", integral_limits)
 def test_integral_easy(m_lo, m_hi, source):
     # see if the integral matches the full integral for an easy example
@@ -44,6 +46,7 @@ def test_integral_easy(m_lo, m_hi, source):
     test_integral = ssp_obj._integrate_mass_smart(linear, m_lo, m_hi, source)
 
     assert approx(real_integral) == test_integral
+
 
 @pytest.mark.parametrize("m_lo,m_hi,source", integral_limits)
 def test_integral_actual(m_lo, m_hi, source):
@@ -91,7 +94,7 @@ def test_wind_constant_early_times():
     # be constant
     metallicity = 0.004
     time_early = 0
-    time_late = ssp_obj.lifetimes.lifetime(55, metallicity)
+    time_late = ssp_obj.lifetimes.lifetime(50.1, metallicity)
 
     wind_early = ssp_obj.mass_loss_rate_winds(time_early, metallicity)
     wind_late = ssp_obj.mass_loss_rate_winds(time_late, metallicity)
@@ -102,8 +105,8 @@ def test_wind_constant_early_times():
 def test_wind_decay():
     # Once stars start dying winds should go down
     metallicity = 0.004
-    time_early = ssp_obj.lifetimes.lifetime(55, metallicity)
-    time_late = ssp_obj.lifetimes.lifetime(20, metallicity)
+    time_early = ssp_obj.lifetimes.lifetime(50.1, metallicity)
+    time_late = ssp_obj.lifetimes.lifetime(49.9, metallicity)
 
     wind_early = ssp_obj.mass_loss_rate_winds(time_early, metallicity)
     wind_late = ssp_obj.mass_loss_rate_winds(time_late, metallicity)

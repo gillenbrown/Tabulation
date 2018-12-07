@@ -278,6 +278,6 @@ class SSPYields(object):
         :param metallicity: Metallicity at which to get the ejecta
         :return: Mass loss rate for the given element by SNIa.
         """
-        phi_dt = self.sn_ia_model.sn_dtd(time)
+        phi_per_dt = self.sn_ia_model.sn_dtd(time)
         mass_per_sn = self.sn_ia_model.ejected_mass(element, metallicity)
-        return phi_dt * self.num_sn_Ia * mass_per_sn
+        return phi_per_dt * self.num_sn_Ia * mass_per_sn

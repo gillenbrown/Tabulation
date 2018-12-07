@@ -1,7 +1,7 @@
 import yields
 from scipy import interpolate
 
-elts = ["He", "C", "N", "O", "Fe", "total_metals"]
+elts = ["He", "C", "N", "O", "Fe", "Na", "total_metals"]
 
 
 class InstantaneousEjecta(object):

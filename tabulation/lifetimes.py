@@ -29,6 +29,8 @@ class Lifetimes(object):
         :param z: Metallicity at which to evaluate the lifetimes.
         :return: Mass in solar masses of the star leaving the main sequence.
         """
+        if time == 0:
+            return self.max_mass
         # We'll use scipy's minimize, which will be used to find the stellar
         # mass that best returns the correct lifetimes.
         # make a function that we can use to minimize.

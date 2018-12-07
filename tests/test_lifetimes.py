@@ -23,3 +23,20 @@ def test_inversion_to_time():
     inverted_life = lifetimes.lifetime(mass, rand_z)
 
     assert pytest.approx(rand_time) == inverted_life
+
+
+def test_zero_time():
+    lifetimes = Lifetimes("raiteri_96")
+    rand_z = np.random.uniform(1E-4, 0.02)
+    mass = lifetimes.turnoff_mass(0, rand_z)
+
+    assert mass == 120
+
+
+def test_zero_time_and_one():
+    lifetimes = Lifetimes("raiteri_96")
+    rand_z = np.random.uniform(1E-4, 0.02)
+    mass_0 = lifetimes.turnoff_mass(0, rand_z)
+    mass_1 = lifetimes.turnoff_mass(1, rand_z)  # one year!
+
+    assert mass_1 < mass_0
