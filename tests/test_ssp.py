@@ -10,20 +10,15 @@ def ssp():
     return SSPYields("Kroupa", 1, 50, 1,
                      "Raiteri_96",
                      "Kobayashi_06", 0.5, 8, 50,
-                     "ART", "Nomoto_18", 0.015, 3, 8,
+                     "ART power law", "Nomoto_18", {"number_sn_ia": 1.6E-3},
                      "NuGrid", 1, 8)
 
 
 ssp_obj = SSPYields("Kroupa", 1, 50, 1,
                     "Raiteri_96",
                     "Kobayashi_06", 0.5, 8, 50,
-                    "ART", "Nomoto_18", 0.015, 3, 8,
+                    "ART power law", "Nomoto_18", {"number_sn_ia": 1.6E-3},
                     "NuGrid", 1, 8)
-
-
-def test_num_snia():
-    # it should just be less than the total mass
-    assert ssp_obj.num_sn_Ia < ssp_obj.imf.total_mass
 
 
 integral_limits = [[10, 45, "massive"],

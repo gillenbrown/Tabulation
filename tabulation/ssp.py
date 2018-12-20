@@ -23,8 +23,7 @@ class SSPYields(object):
                  lifetimes_name,
                  sn_ii_yields, sn_ii_hn_fraction,
                  sn_ii_min_mass, sn_ii_max_mass,
-                 sn_ia_dtd, sn_ia_yields, sn_ia_exploding_fraction,
-                 sn_ia_min_mass, sn_ia_max_mass,
+                 sn_ia_dtd, sn_ia_yields, sn_ia_kwargs,
                  agb_yields, agb_min_mass, agb_max_mass):
         """
 
@@ -58,18 +57,17 @@ class SSPYields(object):
         :param sn_ia_yields: Name of the yield set used for SN Ia. Available
                              choices are: "Nomoto_18".
         :type sn_ia_yields: str
+        :param sn_ia_kwargs: Dictionary of additional parameters to be passed
+                             to the SN Ia DTD function. For the "old art"
+                             DTD we need "min_mass", "max_mass", and
+                             "exploding_fraction" (the fraction of stars between
+                             min_mass and max_mass that explode as SN Ia. For
+                             "art power law" we only need the overall number of
+                             SNIa that explode in a unit mass SSP:
+                             "number_sn_ia"
         :param agb_yields: Name of the yield set used for SN II. Available
                            choices are: "NuGrid".
         :type agb_yields: str
-        :param sn_ia_exploding_fraction: Fraction of stars in the IMF range
-                                         where SNIa exist that explode as SNIa.
-        :type sn_ia_exploding_fraction: float
-        :param sn_ia_min_mass: Minimum stellar mass capable of
-                               exploding as SNIa.
-        :type sn_ia_min_mass: float
-        :param sn_ia_max_mass: Maximum stellar mass capable of
-                               exploding as SNIa.
-        :type sn_ia_max_mass: float
         :param agb_min_mass: Minimum stellar mass that ejects mass in AGB phase.
         :type agb_min_mass: float
         :param agb_min_mass: Maximum stellar mass that ejects mass in AGB phase.
@@ -79,16 +77,9 @@ class SSPYields(object):
         self.lifetimes = Lifetimes(lifetimes_name)
         self.sn_ii_model = MassiveOverall(sn_ii_yields, sn_ii_hn_fraction,
                                           sn_ii_min_mass, sn_ii_max_mass)
-        self.sn_ia_model = SNIa(sn_ia_dtd, sn_ia_yields,
-                                sn_ia_exploding_fraction,
-                                sn_ia_min_mass, sn_ia_max_mass)
+        self.sn_ia_model = SNIa(sn_ia_dtd, sn_ia_yields, self.lifetimes,
+                                self.imf, **sn_ia_kwargs)
         self.agb_model = AGB(agb_yields, agb_min_mass, agb_max_mass)
-
-        # handle a bit more computation for Ia
-        num_in_range = integrate.quad(self.imf.normalized_dn_dm,
-                                      self.sn_ia_model.min_mass,
-                                      self.sn_ia_model.max_mass)[0]
-        self.num_sn_Ia = num_in_range * self.sn_ia_model.exploding_fraction
 
     def _integrate_mass_smart(self, func, lower_mass_limit, upper_mass_limit,
                               source):
@@ -278,6 +269,6 @@ class SSPYields(object):
         :param metallicity: Metallicity at which to get the ejecta
         :return: Mass loss rate for the given element by SNIa.
         """
-        phi_per_dt = self.sn_ia_model.sn_dtd(time)
+        sn_rate = self.sn_ia_model.sn_dtd(time)
         mass_per_sn = self.sn_ia_model.ejected_mass(element, metallicity)
-        return phi_per_dt * self.num_sn_Ia * mass_per_sn
+        return sn_rate * mass_per_sn
