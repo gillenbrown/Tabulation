@@ -57,7 +57,7 @@ class SNIa(object):
                                           kwargs["min_mass"],
                                           kwargs["max_mass"])[0]
             self.number_sn_Ia = num_in_range * kwargs["exploding_fraction"]
-        elif dtd_name == "ART power law":
+        elif dtd_name.lower() == "art power law":
             self.number_sn_Ia = kwargs["number_sn_ia"]
 
     def old_art_dtd(self, age):
