@@ -40,3 +40,21 @@ def test_zero_time_and_one():
     mass_1 = lifetimes.turnoff_mass(1, rand_z)  # one year!
 
     assert mass_1 < mass_0
+
+def test_example_10():
+    lifetimes = Lifetimes("raiteri_96")
+    test_answer = lifetimes.lifetime(10, 0.02)
+    true_answer = 10**7.40388943
+    assert test_answer == pytest.approx(true_answer, rel=1E-5)
+
+def test_example_1():
+    lifetimes = Lifetimes("raiteri_96")
+    test_answer = lifetimes.lifetime(1, 0.02)
+    true_answer = 10**9.978444275
+    assert test_answer == pytest.approx(true_answer, rel=1E-5)
+
+def test_example_0_8():
+    lifetimes = Lifetimes("raiteri_96")
+    test_answer = lifetimes.lifetime(0.8, 0.02)
+    true_answer = 10**10.31758431
+    assert test_answer == pytest.approx(true_answer, rel=1E-5)

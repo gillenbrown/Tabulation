@@ -140,9 +140,19 @@ def test_ejected_masses_sn_below_8(sn_ii_kobayashi):
         assert 0 == sn_ii_kobayashi.ejecta(7.99, z)
 
 
+def test_ejected_masses_sn_above_50(sn_ii_kobayashi):
+    for z in sn_ii_kobayashi.metallicities:
+        assert 0 == sn_ii_kobayashi.ejecta(50.01, z)
+
+
 def test_ejected_masses_hn_below_20(hn_ii_kobayashi):
     for z in hn_ii_kobayashi.metallicities:
         assert 0 == hn_ii_kobayashi.ejecta(19.99, z)
+
+
+def test_ejected_masses_hn_above_50(hn_ii_kobayashi):
+    for z in hn_ii_kobayashi.metallicities:
+        assert 0 == hn_ii_kobayashi.ejecta(50.01, z)
 
 
 def test_ejected_masses_sn_between_8_13(sn_ii_kobayashi):
@@ -341,7 +351,13 @@ ejecta_check_sn = [[13, 0,     "C",  7.41E-2 + 8.38E-8],
                    [25, 0.004, "C",  1.32E-1 + 3.83E-4],
                    [30, 0.004, "N",  2.01E-2 + 4.98E-6],
                    [40, 0.02,  "O",  7.33E-0 + 9.72E-4 + 1.23E-2],
-                   [13, 0.02,  "Fe", 1.98E-3 + 8.32E-2 + 2.22E-3 + 1.21E-4]]
+                   [13, 0.02,  "Fe", 1.98E-3 + 8.32E-2 + 2.22E-3 + 1.21E-4],
+                   [15, 0,     "Mg", 6.82E-2 + 2.98E-4 + 3.99E-4],
+                   [18, 0.001, "Mg", 5.93E-2 + 9.46E-4 + 9.27E-4],
+                   [20, 0.004, "S",  5.15E-2 + 1.89E-4 + 9.12E-4 + 1.36E-6],
+                   [25, 0.02,  "S",  4.99E-2 + 3.25E-4 + 2.26E-3 + 2.42E-5],
+                   [30, 0,     "Ca", 1.74E-2 + 8.62E-7 + 1.93E-9 + 5.44E-6],
+                   [40, 0.001, "Ca", 3.66E-2 + 2.29E-5 + 2.81E-7 + 1.10E-5]]
 
 
 @pytest.mark.parametrize("m,z,elt,answer", ejecta_check_sn)
@@ -354,7 +370,10 @@ def test_sn_ejected_masses(sn_ii_kobayashi, m, z, elt, answer):
 ejecta_check_hn = [[20, 0,     "C",  1.90E-1 + 1.18E-8],
                    [25, 0.001, "N",  9.20E-3 + 7.24E-6],
                    [30, 0.004, "O",  3.82E-0 + 1.20E-4 + 4.38E-5],
-                   [40, 0.02,  "Fe", 5.89E-3 + 2.77E-1 + 8.90E-3 + 1.36E-3]]
+                   [40, 0.02,  "Fe", 5.89E-3 + 2.77E-1 + 8.90E-3 + 1.36E-3],
+                   [20, 0.02,  "Mg", 6.88E-2 + 1.12E-2 + 7.52E-3],
+                   [25, 0.004, "S",  4.02E-2 + 3.05E-4 + 1.25E-3],
+                   [30, 0.001, "Ca", 1.10E-2 + 8.11E-6 + 6.45E-7 + 2.44E-4]]
 
 
 @pytest.mark.parametrize("m,z,elt,answer", ejecta_check_hn)
@@ -436,6 +455,70 @@ def test_agb_ejected_metals(agb_nugrid, m, z, m_remnant, m_h, m_he):
     metal_ejecta = m - (m_remnant + m_h + m_he)
     my_answer = agb_nugrid.elemental_ejecta_mass(m, z, "total_metals")
     assert my_answer == approx(metal_ejecta, rel=5E-2)
+
+
+# ----------------------------------------------------------
+
+# SN energies
+
+# ----------------------------------------------------------
+@pytest.mark.parametrize("z", [0, 0.001, 0.004, 0.02])
+def test_sn_energies_boundaries(sn_ii_kobayashi, z):
+    # Outside the boundary there is no SN and no energy
+    assert sn_ii_kobayashi.energy_released_erg(7.99, z) == 0
+    assert sn_ii_kobayashi.energy_released_erg(50.01, z) == 0
+
+
+@pytest.mark.parametrize("z", [0, 0.001, 0.004, 0.02])
+def test_sn_energies(sn_ii_kobayashi, z):
+    # These should all have the same energies, at all metallicities and masses
+    for m in np.random.uniform(sn_ii_kobayashi.mass_boundary_low,
+                               sn_ii_kobayashi.mass_boundary_high, 100):
+        assert sn_ii_kobayashi.energy_released_erg(m, z) == approx(1E51)
+
+
+@pytest.mark.parametrize("z", [0, 0.001, 0.004, 0.02])
+def test_hn_energies_boundaries(hn_ii_kobayashi, z):
+    # Outside the boundary there is no SN and no energy
+    assert hn_ii_kobayashi.energy_released_erg(7.99, z) == 0
+    assert hn_ii_kobayashi.energy_released_erg(50.01, z) == 0
+
+
+@pytest.mark.parametrize("z", [0, 0.001, 0.004, 0.02])
+@pytest.mark.parametrize("mass,energy", [[20, 10E51], [25, 10E51],
+                                         [30, 20E51], [40, 30E51]])
+def test_hn_energies_exact(hn_ii_kobayashi, z, mass, energy):
+    assert hn_ii_kobayashi.energy_released_erg(mass, z) == approx(energy)
+
+
+@pytest.mark.parametrize("z", [0, 0.001, 0.004, 0.02])
+def test_hn_energies_low_end(hn_ii_kobayashi, z):
+    # Everything between 20 and 25 has the same energy
+    for mass in np.arange(20, 25, 0.1):
+        assert hn_ii_kobayashi.energy_released_erg(mass, z) == approx(10E51)
+
+
+@pytest.mark.parametrize("z", [0, 0.001, 0.004, 0.02])
+def test_hn_energies_high_end(hn_ii_kobayashi, z):
+    # Everything above 40 should have the same energy
+    for mass in np.arange(40, 50, 0.1):
+        assert hn_ii_kobayashi.energy_released_erg(mass, z) == approx(30E51)
+
+
+energy_checks = [[25, 30, 1E52, 2E52],
+                 [30, 40, 2E52, 3E52]]
+
+
+@pytest.mark.parametrize("z", [0, 0.001, 0.004, 0.02])
+@pytest.mark.parametrize("m_low,m_high,e_low,e_high", energy_checks)
+def test_hn_energies_between_general(hn_ii_kobayashi, m_low, m_high,
+                                     e_low, e_high, z):
+    """Test the energies when they dont align with real SN models
+       We interpolate the energies, so the results should be between the
+       two models given."""
+    for mass in np.arange(m_low+0.1, m_high, 0.1):
+        energy = hn_ii_kobayashi.energy_released_erg(mass, z)
+        assert e_low < energy < e_high
 
 
 # ----------------------------------------------------------
@@ -584,5 +667,16 @@ def test_sn_hn_fractions_sum(massive_overall):
     for m in np.arange(0, 100, 1):
         assert 1.0 == massive_overall.sn_fraction(m) + \
                       massive_overall.hn_fraction(m)
+
+
+energy_checks_overall = [[8, 1E51], [13, 1E51], [19.99, 1E51], [20, 5.05E51],
+                         [25, 5.05E51], [30, 9.55E51], [40, 14.05E51],
+                         [49.9, 14.05E51]]
+
+
+@pytest.mark.parametrize("z", [0, 0.001, 0.004, 0.02])
+@pytest.mark.parametrize("m,e_true", energy_checks_overall)
+def test_integrand_energies(massive_overall, z, m, e_true):
+    assert massive_overall.energy_released_erg(m, z) == approx(e_true)
 
 # TODO: think of splitting up integrals

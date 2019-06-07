@@ -1,7 +1,7 @@
 import yields
 from scipy import interpolate
 
-elts = ["He", "C", "N", "O", "Fe", "Na", "total_metals"]
+elts = ["He", "C", "N", "O", "Mg", "S", "Ca", "Fe", "total_metals"]
 
 
 class InstantaneousEjecta(object):
@@ -215,8 +215,9 @@ class SNII(InstantaneousEjecta):
         :param min_mass: Minimum mass that explodes as SN
         :param max_mass: Maximum mass that explodes as SN
         """
-        # initialize the wind model
+        # initialize the wind and energy models
         self._wind_interps = dict()
+        self._energy_erg_interps = dict()
         # then call the parent class constructor
         super().__init__(min_mass, max_mass)
 
@@ -241,6 +242,7 @@ class SNII(InstantaneousEjecta):
         self._make_ejecta_mass_interps()
         self._make_mass_fractions()
         self._make_wind_masses()
+        self._make_energies_ergs()
 
     def winds(self, mass, z):
         """
@@ -256,7 +258,7 @@ class SNII(InstantaneousEjecta):
         interpolated between the stellar models. In the range outside the range
         of the models but inside the allowed mass range, we do a slightly more
         complicated thing. We calculate the fraction of the total stellar mass
-        ejected as windsfor the extremal (largest or smallest) stellar model.
+        ejected as winds for the extremal (largest or smallest) stellar model.
         This is then multiplied by the mass requested. This is a way of
         extending that makes the least assumptions. It extends the model
         without actually extrapolating any quantity from the models.
@@ -309,6 +311,61 @@ class SNII(InstantaneousEjecta):
             interp = interpolate.interp1d(x=self.masses, y=ejecta_masses,
                                           kind="linear", bounds_error=True)
             self._wind_interps[z] = interp
+
+    def energy_released_erg(self, mass, z):
+        """
+        Calculate the energy released by supernovae for a given stellar mass and
+        metallicity.
+
+        If the mass requested is outside the allowed mass range for this type
+        of object, the energy will be zero. If it is within the stellar mass
+        range specified by the models, the energy will be interpolated between
+        the stellar models. In the range outside the range of the models but
+        inside the allowed mass range, we pick the energy in the maximum or
+        minimum model, depending on the value.
+
+        :param mass: Mass of the star.
+        :param z: Metallicity of the star.
+        :return: Energy released by supernovae.
+        """
+        # if outside the allowed range, return zero.
+        if mass < self.mass_boundary_low:
+            return 0
+        elif mass > self.mass_boundary_high:
+            return 0
+        # if in the region inside the allowed range but outside the range
+        # where models exist, we do the thing described in the docstring.
+        elif mass < min(self.masses):
+            # get the lowest mass model
+            low_model = self.models[min(self.masses)]
+            return low_model.energy_erg[z]
+        elif mass > max(self.masses):  # similar to last elif
+            high_model = self.models[max(self.masses)]
+            return high_model.energy_erg[z]
+        else:  # this is where we have good results, so use them.
+            return self._energy_erg_interps[z](mass)
+
+    def _make_energies_ergs(self):
+        """
+        Make the interpolation objects needed for the calculation of wind mass
+
+        This requires that models already exist, so it can't be done in the
+        parent class constructor.
+
+        This is done only in the range where stellar models exist. The rest of
+        the handling is taken care of in the `winds` function.
+
+        :return: None
+        """
+        for z in self.metallicities:
+            # Make the interpolation object for the place where we have models
+            energies = [self.models[m].energy_erg[z] for m in self.masses]
+            # then interpolate between them. We do not want to allow
+            # extrapolation, although this should only be a check since we
+            # should do that if statement elsewhere.
+            interp = interpolate.interp1d(x=self.masses, y=energies,
+                                          kind="linear", bounds_error=True)
+            self._energy_erg_interps[z] = interp
 
 
 class AGB(InstantaneousEjecta):
@@ -470,5 +527,35 @@ class MassiveOverall(object):
         # then construct the total for each type of supernova
         hn_term = self.hn_fraction(mass) * hn_ejected_mass
         sn_term = self.sn_fraction(mass) * sn_ejected_mass
+
+        return hn_term + sn_term
+
+    def energy_released_erg(self, mass, metallicity):
+        """
+        Get the total energy injected by supernovae of a given stellar mass and
+        metallicity.
+
+        This is calculated in the following way:
+        The energy from supernovae is this is calculated separately for both
+        SN and HN. To combine these, we multiply the SN fraction times the SN
+        energy, and similarly for the HN fraction. Then these are added
+        together. Mathematically, this is:
+        f_{SN} * E_{SN} +
+        f_{HN} * E_{HN}
+
+        This goes directly into the calculation of the time-resolved yields that
+        are tabulated.
+
+        :param mass: Stellar mass of the supernova progenitor.
+        :param metallicity: Metallicity of the supernova progenitor.
+        :return: Energy from these supernovae
+        """
+        # get the SN and HN terms
+        sn_energy = self.sn.energy_released_erg(mass, metallicity)
+        hn_energy = self.hn.energy_released_erg(mass, metallicity)
+
+        # then construct the total for each type of supernova
+        hn_term = self.hn_fraction(mass) * hn_energy
+        sn_term = self.sn_fraction(mass) * sn_energy
 
         return hn_term + sn_term
