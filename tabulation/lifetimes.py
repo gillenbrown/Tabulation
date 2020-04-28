@@ -29,7 +29,7 @@ class Lifetimes(object):
         :param z: Metallicity at which to evaluate the lifetimes.
         :return: Mass in solar masses of the star leaving the main sequence.
         """
-        if time == 0:
+        if time < self.min_time(z):
             return self.max_mass
         # We'll use scipy's minimize, which will be used to find the stellar
         # mass that best returns the correct lifetimes.
@@ -43,7 +43,7 @@ class Lifetimes(object):
                                            bounds=[[0.61, 119.9]])
         # turnoff_result is a structure that scipy uses. We want the answer
         # it contains.
-        return turnoff_result.x
+        return turnoff_result.x[0]
 
     def min_time(self, metallicity):
         """
@@ -67,7 +67,10 @@ class Lifetimes(object):
         :param z: total metallicity of the star
         :return: Lifetime of the star, in years.
         """
-        log_z = np.log10(z)
+        if z <= 0:
+            log_z = -100
+        else:
+            log_z = np.log10(z)
         log_m = np.log10(m)
 
         # set boundary conditions

@@ -206,6 +206,80 @@ class SSPYields(object):
                                           metallicity, source)
         return mass_lost / timestep
 
+    def energy_erg_yr_supernovae(self, time, timestep, metallicity):
+        """
+        Calculate the energy injected by supernovae in a given time.
+
+        This will have units of ergs per year.
+
+        This calculation calculates the energy injected in the given
+        timestep by integrating over the energy from stars dying in the the
+        time interval (time, time + timestep) to get the total energy, then
+        dividing by the time to get the average energy rate in this timestep.
+
+        :param time: Time to evaluate the energy rate at (in years)
+        :param timestep: Timestep used to calculate the rate, as described
+                         above, in years.
+        :param metallicity: Metallicity of the progenitors.
+        :return: Energy injection rate in ergs per year.
+        """
+        # get the mass limits of the timesteps the user passed in. The
+        # lower time corresponds to the higher stellar mass
+        m_low = self.lifetimes.turnoff_mass(time + timestep, metallicity)
+        m_high = self.lifetimes.turnoff_mass(time, metallicity)
+
+        model = self.sn_ii_model
+
+        # we want to integrate the instantaneous energy to get the
+        # total energy, so we define the IMF-weighted energy
+        def instantaneous_energy(mass):
+            e_per_star = model.energy_released_erg(mass, metallicity)
+            imf_weight = self.imf.normalized_dn_dm(mass)
+
+            return e_per_star * imf_weight
+
+        # integrate this between our mass limits
+        energy = self._integrate_mass_smart(instantaneous_energy,
+                                            m_low, m_high, source="massive")
+        return energy / timestep
+
+    def supernovae_rate(self, time, timestep, metallicity):
+        """
+        Calculate the supernova rate in a given time.
+
+        This will have units of supernovae per year.
+
+        This calculation calculates the number of dying stars in the given
+        timestep by integrating over the IMF from stars dying in the the
+        time interval (time, time + timestep), then dividing by the time to get
+        the average supernova rate in this timestep.
+
+        :param time: Time to evaluate the supernovae rate at (in years)
+        :param timestep: Timestep used to calculate the rate, as described
+                         above, in years.
+        :param metallicity: Metallicity of the progenitors.
+        :return: Supernova rate in supernovae per year.
+        """
+        # get the mass limits of the timesteps the user passed in. The
+        # lower time corresponds to the higher stellar mass
+        m_low = self.lifetimes.turnoff_mass(time + timestep, metallicity)
+        m_high = self.lifetimes.turnoff_mass(time, metallicity)
+
+        # check the bounds, since supernovae can only happen for certain
+        # mass stars
+        min_mass = self.sn_ii_model.sn.mass_boundary_low
+        max_mass = self.sn_ii_model.sn.mass_boundary_high
+        m_low = max(m_low, min_mass)
+        m_high = min(m_high, max_mass)
+        if m_low > max_mass or m_high < min_mass:
+            return 0
+
+        # Here we just integrate over the IMF to count the stars in this mass
+        # range that die
+        number = self._integrate_mass_smart(self.imf.normalized_dn_dm,
+                                            m_low, m_high, source="massive")
+        return number / timestep
+
     def mass_loss_rate_winds(self, time, metallicity):
         """
         Get the mass loss rate in winds at a given time.
@@ -237,7 +311,7 @@ class SSPYields(object):
             return 0
 
         # we want to integrate over mass to get the total wind mass rate
-        def wind_mass_loss_at_a_mass(mass):
+        def wind_mass_loss_rate_at_a_mass(mass):
             m_wind = self.sn_ii_model.wind_mass(mass, metallicity)
             wind_time = self.lifetimes.lifetime(mass, metallicity)
             imf_weight = self.imf.normalized_dn_dm(mass)
@@ -245,7 +319,55 @@ class SSPYields(object):
             return m_wind * imf_weight / wind_time
 
         # integrate this between our mass limits
-        return self._integrate_mass_smart(wind_mass_loss_at_a_mass,
+        return self._integrate_mass_smart(wind_mass_loss_rate_at_a_mass,
+                                          m_lower_limit, m_upper_limit,
+                                          source="massive")
+
+    def cumulative_mass_loss_winds(self, mass, metallicity):
+        """
+        Get the cumulative mass lost between the beginning of an SSP's life and
+        the age at which a given star is moving off the main sequence.
+
+        This will have units of solar masses.
+
+        This calculation assumes that massive stars lose mass at a constant
+        rate throughout their main sequence lifetime. The mass loss rate for
+        a given stellar mass is therefore just the total mass lost in winds
+        (as provided in yield tables) divided by its lifetime. To get the mass
+        lost in all stars at a given time, we integrate over all stars active
+        at this time, weighted by the IMF.
+
+        :param time: Time at which to get the mass loss rate.
+        :param metallicity: Metallicity of the progenitors.
+        :return: Mass lost in winds during this time, in solar masses.
+        """
+        # Define the mass limits of the integral. Since we're calculating the
+        # cumulative mass, we're always considering the whole mass range. The
+        # only thing that changes with time is time, and how much each star
+        # has contributed, which we handle below in the integrant.
+        m_upper_limit = self.sn_ii_model.sn.mass_boundary_high
+        m_lower_limit = self.sn_ii_model.sn.mass_boundary_low
+
+
+        # we want to integrate over mass to get the total wind lost
+        # We assume stars lose mass at a constant rate. So the total mass lost
+        # is the fraction of their lifetime that has passes times the total
+        # mass they lose in winds.
+        current_time = self.lifetimes.lifetime(mass, metallicity)
+
+        def wind_mass_lost_at_a_mass(m):
+            m_wind = self.sn_ii_model.wind_mass(m, metallicity)
+            wind_time = self.lifetimes.lifetime(m, metallicity)
+            imf_weight = self.imf.normalized_dn_dm(m)
+
+            # have to cap a star so that it loses all its mass, but doesn't
+            # contribute forever
+            time_fraction = min(current_time / wind_time, 1.0)
+
+            return m_wind * imf_weight * time_fraction
+
+        # integrate this between our mass limits
+        return self._integrate_mass_smart(wind_mass_lost_at_a_mass,
                                           m_lower_limit, m_upper_limit,
                                           source="massive")
 
@@ -269,6 +391,12 @@ class SSPYields(object):
         :param metallicity: Metallicity at which to get the ejecta
         :return: Mass loss rate for the given element by SNIa.
         """
-        sn_rate = self.sn_ia_model.sn_dtd(time)
+        sn_rate = self.sn_ia_model.sn_dtd(time, metallicity)
+        diff_lo = abs(metallicity - 0.002)
+        diff_hi = abs(metallicity - 0.02)
+        if diff_lo < diff_hi:
+            metallicity = 0.002
+        else:
+            metallicity = 0.02
         mass_per_sn = self.sn_ia_model.ejected_mass(element, metallicity)
         return sn_rate * mass_per_sn

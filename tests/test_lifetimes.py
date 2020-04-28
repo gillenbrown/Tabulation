@@ -33,11 +33,11 @@ def test_zero_time():
     assert mass == 120
 
 
-def test_zero_time_and_one():
+def test_two_mass_inversions():
     lifetimes = Lifetimes("raiteri_96")
     rand_z = np.random.uniform(1E-4, 0.02)
-    mass_0 = lifetimes.turnoff_mass(0, rand_z)
-    mass_1 = lifetimes.turnoff_mass(1, rand_z)  # one year!
+    mass_0 = lifetimes.turnoff_mass(4E6, rand_z)
+    mass_1 = lifetimes.turnoff_mass(5E6, rand_z)
 
     assert mass_1 < mass_0
 

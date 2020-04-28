@@ -30,9 +30,12 @@ class IMF(object):
         if m_low >= m_high:
             raise ValueError("IMF minumum mass must be lower than maximum mass")
 
+        self.m_low = m_low
+        self.m_high = m_high
+
         # use the total mass to get the normalization.
         self.normalization = 1  # will be replaced
-        self.normalize(m_low, m_high, total_mass)
+        self.normalize(total_mass)
 
     def normalized_dn_dm(self, mass):
         """
@@ -54,7 +57,7 @@ class IMF(object):
         """
         return mass * self.normalized_dn_dm(mass)
 
-    def normalize(self, m_low, m_high, total_mass=1):
+    def normalize(self, total_mass):
         """
         Find the normalization for the IMF so it integrates to a given total.
 
@@ -67,7 +70,9 @@ class IMF(object):
         # total_mass = N * integral of IMF from low to high
         # so
         # N = total_mass / integral
-        integral = integrate.quad(self.normalized_m_dn_dm, m_low, m_high)[0]
+        self.normalization = 1.0  # temporary
+        integral = integrate.quad(self.normalized_m_dn_dm,
+                                  self.m_low, self.m_high)[0]
         self.normalization = total_mass / integral
 
     @staticmethod
